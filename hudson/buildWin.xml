@@ -1,0 +1,401 @@
+<project name="WCM" default="buildTgz" basedir=".">
+	<description>
+		WCM build file
+	</description>
+ 
+	<!-- set global properties for this build -->
+	<property environment="env"/>
+	
+	<property name="ANT_HOME" location="${antHome}"/>
+	
+	
+	<property name="JDK_HOME" location="${wcmJdk}"/>
+	<property name="JAVA_HOME" location="${JDK_HOME}"/>
+	
+	<property name="ROOTDIR" location="${rootDir}"/>
+	
+	<property name="TGZ_FOLDER_NAME" value="WCM_Server"/>
+	
+	<property name="ZIP_PATH" value="${ROOTDIR}/build_kit/buildWin/7-Zip"/>
+	
+	
+	<property name="PATH" location="${JAVA_HOME}/bin:$PATH:${env.PATH}"/>
+  
+	<property name="src" location="src"/>
+	<property name="build" location="build"/>
+	<property name="dist" location="dist"/>
+
+	<property name="BINDIR" location="${ROOTDIR}/build_kit"/>
+	
+	<property name="COMMON_PATH" location="${ROOTDIR}/code/dt_common"/>
+	<property name="SRC_PATH" location="${ROOTDIR}/code"/>
+	<property name="DIST_PATH" location="${ROOTDIR}/bin"/>
+	<property name="LOG_PATH" location="${ROOTDIR}/log"/>
+	<!-- Location of some libraries -->
+	<property name="UTIL_PATH" location="${ROOTDIR}/code/solution/build_kit_for_hudson"/>
+	
+	<property name="TOMCAT_HOME" location="${BINDIR}/tomcat_build_kit/"/>
+	<!-- Format ex.16B151 16-year B-month 15-day 1-build time of the day  -->
+	<property name="BUILDVERSION" value=""/>
+	<property name="PATCH_NUM" location="rtm"/>
+	<property name="BUILD_DATE" location="date +%Y-%m-%d"/>
+	<property name="BUILDMD5SUM" location=""/>
+	<!--property name="PS" location="ContentPublishServer"/-->
+	<property name="PS" value="ContentPublishServer"/>
+	<property name="CM" value="ContentServer"/>
+	<property name="ERROR_CODE" value="0"/>
+	<property name="FAIL_REASON" value="Unknown reason"/>
+  
+	
+	
+	<scriptdef name="propertyreset" language="javascript"
+				description="Allows to assign @{property} new value">
+		<attribute name="name"/>
+		<attribute name="value"/>
+		project.setProperty(attributes.get("name"), attributes.get("value"));
+	</scriptdef>
+
+	
+	
+	<target name="buildTgz">
+		
+		<echo> $${JAVA_HOME}=${JAVA_HOME} </echo>
+		<echo> $${PS}=${PS} </echo>
+		<echo> $${arg0}=${arg0} </echo>
+		<echo> $${arg1}=${arg1} </echo>
+		
+		<propertyreset name="VERSION_DATE" value="${arg0}"/>
+		<propertyreset name="BUILDVERSION" value="${arg1}"/>
+		<propertyreset name="WCM_Version" value="${arg2}"/>
+		<propertyreset name="WCM_Major_Ver" value="${arg3}"/>
+		<propertyreset name="WCM_Minor_Ver" value="${arg4}"/>
+		<!-- Create the time stamp -->
+		<tstamp/>
+		<!-- Create the build directory structure used by compile -->
+		<antcall target="doDirDelete" >
+			<param name="dirPath" value="${LOG_PATH}"/>
+		</antcall>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${LOG_PATH}"/>
+		</antcall>
+		
+		<antcall target="doDirDelete" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/dist"/>
+		</antcall>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/dist"/>
+		</antcall>
+		
+		<antcall target="doDirDelete" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/temp"/>
+		</antcall>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/temp"/>
+		</antcall>
+		
+		<echo>Delete ${TOMCAT_HOME}/lib/postgresql-*.jar</echo>
+		<delete>
+			<fileset dir="${TOMCAT_HOME}/lib" includes="postgresql*.jar"/>
+		</delete>
+		<echo>Copy ${TOMCAT_HOME}/lib/postgresql-*.jar from ${SRC_PATH}/eSignage/Build/lib</echo>
+		<copy todir="${TOMCAT_HOME}/lib">
+			<fileset dir="${SRC_PATH}/eSignage/Build/lib" includes="postgresql*.jar"/>
+		</copy>
+		
+		<echo> Replace the string 'WCM_Build_Number' in the *.sql file by $${BUILDVERSION}=${BUILDVERSION} </echo>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/temp"/>
+		</antcall>
+		
+		<antcall target="antfnr" >
+			<param name="buildVer" value="${BUILDVERSION}"/>
+			<param name="buildPath" value="${SRC_PATH}\eSignage\Build"/>
+		</antcall>
+		
+		<antcall target="antfnr" >
+			<param name="buildVer" value="${BUILDVERSION}"/>
+			<param name="buildPath" value="${SRC_PATH}\eSignage\ContentServer\WEB-INF\sql"/>
+		</antcall>
+		
+		<antcall target="buildCommon" />
+		
+		<copy file="${SRC_PATH}/dt_common/build/dt.openapi.jar"
+			  todir="${SRC_PATH}/eSignage/ContentPublishServer/ROOT/WEB-INF/lib/">
+		</copy>
+		
+		<copy file="${SRC_PATH}/dt_common/build/dt.openapi.jar"
+			  todir="${SRC_PATH}/eSignage/ContentServer/WEB-INF/lib/">
+		</copy>
+		
+		<antcall target="buildContentPublishSrv" >
+			<param name="buildVer" value="${BUILDVERSION}"/>
+			<param name="wcmVer" value="${WCM_Version}"/>
+			<param name="wcmMajorVer" value="${WCM_Major_Ver}"/>
+			<param name="wcmMinorVer" value="${WCM_Minor_Ver}"/>
+		</antcall>
+		
+		<antcall target="buildContentSrv" >
+			<param name="buildVer" value="${BUILDVERSION}"/>
+			<param name="wcmVer" value="${WCM_Version}"/>
+			<param name="wcmMajorVer" value="${WCM_Major_Ver}"/>
+			<param name="wcmMinorVer" value="${WCM_Minor_Ver}"/>
+		</antcall>
+		
+		<antcall target="compressPackage" >
+			<param name="TARNAME" value="WebDTContentServer${BUILDVERSION}"/>
+			<param name="wcmVer" value="${WCM_Version}"/>
+			<param name="wcmMajorVer" value="${WCM_Major_Ver}"/>
+			<param name="wcmMinorVer" value="${WCM_Minor_Ver}"/>
+		</antcall>
+		
+		<!--antcall target="copyTgz" >
+			<param name="TARNAME" value="WebDTContentServer${BUILDVERSION}.tgz"/>
+		</antcall-->
+		
+	</target>
+	
+	<!--
+	Check the target tgz file and folder, then copy it. 
+	-->
+	<target name="copyTgz" description="Copy the tgz file after build processes complete!">
+		
+		
+		<echo>Target copy tgz file!</echo>
+		<echo>HUDSON_HOME:${env.HUDSON_HOME}</echo>
+		<echo>ROOTDIR:${ROOTDIR}</echo>
+		<echo>TARNAME:${TARNAME}</echo>
+		<echo>TGZ Files DIST_PATH:${DIST_PATH}</echo>
+		<echo>JOB_NAME:${env.JOB_NAME}</echo>
+		<echo>WORKSPACE:${env.WORKSPACE}</echo>
+		
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${env.HUDSON_HOME}/${TGZ_FOLDER_NAME}"/>
+		</antcall>
+		
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${env.HUDSON_HOME}/${TGZ_FOLDER_NAME}/${env.JOB_NAME}"/>
+		</antcall>
+		
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${env.HUDSON_HOME}/${TGZ_FOLDER_NAME}/${env.JOB_NAME}/bin"/>
+		</antcall>
+		
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${env.HUDSON_HOME}/${TGZ_FOLDER_NAME}/${env.JOB_NAME}/bin/tgz"/>
+		</antcall>
+		
+		<copy file="${DIST_PATH}/tgz/${TARNAME}"
+			  todir="${env.HUDSON_HOME}/${TGZ_FOLDER_NAME}/${env.JOB_NAME}/bin/tgz/">
+		</copy>
+	</target>
+	
+	<target name="compressPackage">
+		 
+		<echo>Create folder ${DIST_PATH}!</echo>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${DIST_PATH}"/>
+		</antcall>
+		<echo>Create folder ${DIST_PATH}/tgz!</echo>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${DIST_PATH}/tgz"/>
+		</antcall>
+		
+		<!--7z  a  -ttar  this_is_tar_file.tar  soure_files_or_folders-->
+		<echo>Create tar ${DIST_PATH}/tgz/ file tar!</echo>
+		<exec executable="${ZIP_PATH}/7z">
+			<arg value="a"/>
+			<arg value="-ttar"/>
+			<arg value="&quot;${DIST_PATH}/tgz/${TARNAME}.tar&quot;"/>
+			<arg value="&quot;${ROOTDIR}/code/eSignage/dist/*&quot;"/>
+		</exec>
+		
+		<!--7z  a  -tgzip  this_is_tar_file.gz  soure_files_or_folders -->
+		<echo>Create ${DIST_PATH}/tgz/file tgz!</echo>
+		<exec executable="${ZIP_PATH}/7z">
+			<arg value="a"/>
+			<arg value="-tgzip"/>
+			<arg value="&quot;${DIST_PATH}\tgz\${TARNAME}.tgz&quot;"/>
+			<arg value="&quot;${DIST_PATH}/tgz/${TARNAME}.tar&quot;"/>
+		</exec>
+		
+		<echo>Remove tar file.</echo>
+		<delete file="${DIST_PATH}/tgz/${TARNAME}.tar"/>
+	</target>
+	
+	
+	
+	<target name="buildContentSrv">
+		
+		<echo>Remove .version on Content Server</echo>
+		<delete file="${SRC_PATH}/eSignage/ContentServer/src/.version"/>
+
+		<echo>Remove classes folder</echo>
+		<delete dir="${SRC_PATH}/eSignage/ContentServer/WEB-INF/classes"/>
+		<echo>Create classes folder</echo>
+		<mkdir dir="${SRC_PATH}/eSignage/ContentServer/WEB-INF/classes"/>
+		
+		<echo>Remove jsp java files folder</echo>
+		<delete dir="${SRC_PATH}/eSignage/ContentServer/src/org/apache"/>
+		
+		<echo>Create classes folder</echo>
+		<mkdir dir="${SRC_PATH}/eSignage/ContentServer/src/org/apache"/>
+		
+		<echo>Run clean-all on target ContentServer.</echo>
+		<ant antfile="${SRC_PATH}\eSignage\ContentServer\buildWin.xml" target="clean-all" dir="${SRC_PATH}\eSignage\ContentServer" >
+			<property name="rootDir" value="${ROOTDIR}"/>
+			<property name="wcmJdk" value="${JDK_HOME}"/>
+			<property name="wcmTomcat" value="${TOMCAT_HOME}"/>
+		</ant>
+		
+		<echo>Run jspc on target ContentServer.</echo>
+		<ant antfile="${SRC_PATH}\eSignage\ContentServer\buildWin.xml" target="jspc" dir="${SRC_PATH}\eSignage\ContentServer" >
+			<property name="rootDir" value="${ROOTDIR}"/>
+			<property name="wcmJdk" value="${JDK_HOME}"/>
+			<property name="wcmTomcat" value="${TOMCAT_HOME}"/>
+		</ant>
+		
+		<echo>Create ${WCM_Version}-${BUILDVERSION} -> .version</echo>
+		<echo file="${SRC_PATH}/eSignage/ContentServer/WEB-INF/classes/.version" >${wcmVer}-${buildVer}</echo>
+		
+		<echo>Run default target of the content server.</echo>
+		
+		<echo>Replace VERINFO -> ${wcmMajorVer}.${wcmMinorVer}-(${buildVer}) - ${ROOTDIR}/code/eSignage/ContentServer/WEB-INF/web.xml</echo>
+		
+		<replace dir="${ROOTDIR}/code/eSignage/ContentServer/WEB-INF" token="VERINFO" value="${wcmMajorVer}.${wcmMinorVer}-(${buildVer})">
+			<include name="web.xml"/>
+		</replace>
+		
+		<ant antfile="${SRC_PATH}\eSignage\ContentServer\buildWin.xml" dir="${SRC_PATH}\eSignage\ContentServer" >
+			<property name="rootDir" value="${ROOTDIR}"/>
+			<property name="wcmJdk" value="${JDK_HOME}"/>
+			<property name="wcmTomcat" value="${TOMCAT_HOME}"/>
+			<property name="verInfo" value="${wcmMajorVer}.${wcmMinorVer}-(${buildVer})"/>
+		</ant>
+		
+		<echo>Create dist!</echo>
+		<antcall target="doDirCreate" >
+			<param name="dirPath" value="${SRC_PATH}/eSignage/dist"/>
+		</antcall>
+		
+		<echo>Copy dt.common.jar to dist!</echo>
+		<copy file="${SRC_PATH}/dt_common/build/dt.common.jar"
+			  todir="${SRC_PATH}/eSignage/dist/">
+		</copy>
+		
+		<echo>Copy dt.openapi.jar to dist!</echo>
+		<copy file="${SRC_PATH}/dt_common/build/dt.openapi.jar"
+			  todir="${SRC_PATH}/eSignage/dist/">
+		</copy>
+		
+		<echo>Create ${WCM_Version}-${BUILDVERSION} -> .version</echo>
+		<echo file="${SRC_PATH}/eSignage/dist/conf/.version" >${wcmVer}-${buildVer}</echo>
+		
+		<echo>Build Complete!</echo>
+	</target>
+	
+	<!-- Prepare the folder and version file before the core target running. -->
+	<target name="buildContentPublishSrv">
+		<redirector output="${ROOTDIR}\log\ps.txt" alwayslog="true"/>  
+
+		<echo>Remove and re-generate classes folder.</echo>
+		<echo>Remove classes folder</echo>
+		<delete dir="${SRC_PATH}/eSignage/ContentPublishServer/ROOT/WEB-INF/classes"/>
+		
+		<echo>Create classes folder</echo>
+		<mkdir dir="${SRC_PATH}/eSignage/ContentPublishServer/ROOT/WEB-INF/classes"/>
+		
+		<echo>Remove and re-generate .version</echo>
+		<delete file="${SRC_PATH}/eSignage/ContentPublishServer/ROOT/WEB-INF/classes/.version"/>
+		<delete file="${SRC_PATH}/eSignage/ContentPublishServer/src/.version"/>
+		
+		<echo>Create ${WCM_Version}-${BUILDVERSION} -> .version</echo>
+		<echo file="${SRC_PATH}/eSignage/ContentPublishServer/ROOT/WEB-INF/classes/.version" >${wcmVer}-${buildVer}</echo>
+		
+		<echo>Run ant build content publish server!</echo>
+		<echo>${SRC_PATH}\eSignage\ContentPublishServer\build\buildWin.xml</echo>
+		<echo>${SRC_PATH}\eSignage\ContentPublishServer\build</echo>
+		<echo>wcmJdk:${JDK_HOME}</echo>
+		<echo>wcmTomcat:${TOMCAT_HOME}</echo>
+		<!--Run ant -->
+		
+		<ant antfile="${SRC_PATH}\eSignage\ContentPublishServer\build\buildWin.xml" dir="${SRC_PATH}\eSignage\ContentPublishServer\build" >
+			<property name="wcmJdk" value="${JDK_HOME}"/>
+			<property name="wcmTomcat" value="${TOMCAT_HOME}"/>
+			<property name="rootDir" value="${ROOTDIR}"/>
+			<property name="verInfo" value="${wcmMajorVer}.${wcmMinorVer}-(${buildVer})"/>
+		</ant>
+		
+		
+	</target>
+	
+	<!--
+	cp "$SRC_PATH/dt_common/build/dt.openapi.jar" "$SRC_PATH/eSignage/ContentPublishServer/ROOT/WEB-INF/lib/"
+	cp "$SRC_PATH/dt_common/build/dt.openapi.jar" "$SRC_PATH/eSignage/ContentServer/WEB-INF/lib/"
+	-->
+	<!--$SRC_PATH/dt_common/build-->
+	<target name="buildCommon">
+		<echo>buildCommon on buildTgz!</echo>
+		<echo>ANT_HOME:${ANT_HOME}</echo>
+		<echo>JAVA_HOME:${JDK_HOME}</echo>
+		
+		<ant antfile="${COMMON_PATH}\build\buildWin.xml" target="clean" dir="${COMMON_PATH}\build" >
+			<property name="wcmJdk" value="${JDK_HOME}"/>
+			<property name="commonPath" value="${COMMON_PATH}"/>
+		</ant>
+		
+	</target>
+	
+	<!--ANT find and replace-->
+	<target name="antfnr">
+		<!--echo>$${SRC_PATH}:${SRC_PATH}/eSignage/Build</echo-->
+		<echo>$${BUILDVERSION}:${BUILDVERSION}</echo>
+		<echo>$${buildVer}:${buildVer}</echo>
+		<echo>$${findStr}:${findStr}</echo>
+		<echo>$${buildPath}:${buildPath}</echo>
+		
+		<!--replacetoken couldn't use the parameter. token="${findStr}"-->
+		<replace dir="${buildPath}" token="WCM_Build_Number" value="${buildVer}">
+			<include name="**/*.sql"/>			
+		</replace>
+	</target>
+	
+	<target name="doDirDelete" depends="dir.check" if="dir.exists">
+		<echo>${dirPath} exists</echo>
+		<delete includeemptydirs="true">
+			<fileset dir="${dirPath}" includes="**/*"/>
+		</delete>
+	</target>
+
+	<target name="doDirCreate" depends="dir.check" unless="dir.exists">
+		<echo>${dirPath} missing"</echo>
+		<mkdir dir="${dirPath}"/>
+		<echo>${dirPath} make</echo>
+	</target>
+
+	<target name="dir.check">
+		<echo>$${dirPath} ${dirPath}</echo>
+		<condition property="dir.exists">			
+			<available file="${dirPath}" type="dir"/>
+		</condition>
+		<echo message="Folder found: ${dir.exists}" />		
+	</target>
+	
+	<target name="compile" depends="buildTgz" description="compile the source">
+		<!-- Compile the java code from ${src} into ${build} -->
+		<javac srcdir="${src}" destdir="${build}"/>
+	</target>
+
+  <target name="dist" depends="compile" description="generate the distribution">
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}/lib"/>
+
+    <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
+  </target>
+
+  <target name="clean"
+        description="clean up">
+    <!-- Delete the ${build} and ${dist} directory trees -->
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>

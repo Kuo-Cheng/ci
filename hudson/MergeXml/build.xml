@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="MergeXml" default="dist" basedir=".">
+	<property environment="env"/>
+
+	<property file="build.properties"/>
+	<!--property name="env.JAVA_HOME" value="${build.jdk}" /-->
+	<property name="JAVA_HOME" value="${build.jdk}" />
+	<property name="PATH" location="${build.jdk}/bin;${env.PATH}"/>
+	<target name="clean" >
+		<echo>Clean mergeXml!</echo>
+		<delete dir="dist"/>
+	</target>
+
+	<target name="init" depends="clean">
+		<echo>Init mergeXml!</echo>
+		<echo>${build.jdk}</echo>
+		<echo>${env.JAVA_HOME}</echo>
+		<echo>${JAVA_HOME}</echo>
+		
+		<mkdir dir="dist"/>
+		
+		<mkdir dir="dist/classes"/>
+		
+	</target>
+
+	<target name="compile" depends="init">
+		<echo>Compile mergeXml!</echo>
+		
+		<javac srcdir="src" destdir="dist/classes" optimize="on" debug="true" failonerror="true" 
+			   deprecation="true" nowarn="true" source="1.6" target="1.6" fork="true" memoryMaximumSize="1024m">
+			   
+			<compilerarg line="-version " />
+			
+			
+		</javac>
+		
+		<javac srcdir="src" destdir="dist/classes" optimize="on" debug="true" failonerror="true" 
+			   deprecation="true" nowarn="true" source="1.6" target="1.6" fork="true" memoryMaximumSize="1024m">
+			   
+			<compilerarg line="-encoding UTF-8 " />
+			<include name="**" />
+			
+		</javac>
+		
+		
+	</target>
+
+	<target name="dist" depends="compile">
+		<echo>Dist mergeXml!</echo>
+		<jar destfile="dist/MergeXml.jar">
+			<fileset dir="dist/classes" includes="**/*.class" />
+			<manifest>
+			  <attribute name="Main-Class" value="com.dt.build.MergeXml"/>
+			</manifest>
+		</jar>
+		<copy file="dist/MergeXml.jar" tofile="MergeXml.jar" />
+	</target>
+
+	<target name="test">
+		
+	</target>
+</project>
